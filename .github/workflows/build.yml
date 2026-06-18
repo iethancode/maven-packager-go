@@ -1,0 +1,101 @@
+name: Build
+
+# 触发条件：
+#   1. 推送到 main / master 分支 —— 构建并上传 artifact（不发包）
+#   2. 推送 v* tag（如 v1.0.0）—— 构建并发布到 GitHub Release
+#   3. 手动触发（Actions 页面 Run workflow）
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  workflow_dispatch:
+
+# 同一分支/标签新推送时取消旧构建，省额度
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: maven-packager-go-windows-amd64.exe
+            asset_path: build/bin/maven-packager-go.exe
+          - os: macos-latest
+            artifact: maven-packager-go-macos.app.zip
+            asset_path: build/bin/maven-packager-go.app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+
+      # 顶层 package.json 含 sharp 等 wails 图标处理依赖
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Build application
+        run: wails build -clean
+
+      # macOS 产物是 .app 目录，打包成 zip 便于上传与分发
+      - name: Zip macOS app
+        if: runner.os == 'macOS'
+        run: |
+          cd build/bin
+          ditto -c -k --keepParent maven-packager-go.app maven-packager-go.app.zip
+          echo "asset_path=build/bin/maven-packager-go.app.zip" >> $GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ env.asset_path || matrix.asset_path }}
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish Release
+    # 仅打 tag 时发布；依赖两个平台都构建成功
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: List release assets
+        run: ls -la release-assets
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release-assets/*

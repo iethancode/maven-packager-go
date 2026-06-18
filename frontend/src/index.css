@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── CSS Variables (Light) ───────────────────────── */
+:root {
+  --primary: #4A90E2;
+  --primary-hover: #357ABD;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --info: #06B6D4;
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F8FAFC;
+  --bg-card: #FFFFFF;
+  --bg-surface: #F1F5F9;
+  --bg-alt: #F8FAFC;
+  --text-primary: #1E293B;
+  --text-secondary: #64748B;
+  --text-muted: #94A3B8;
+  --border: #E2E8F0;
+  --border-light: #F1F5F9;
+}
+
+/* ─── CSS Variables (Dark) ────────────────────────── */
+.dark {
+  --primary: #5CA7F8;
+  --primary-hover: #4A90E2;
+  --success: #34D399;
+  --warning: #FCD34D;
+  --error: #F87171;
+  --info: #22D3EE;
+  --bg-primary: #0F172A;
+  --bg-secondary: #1E293B;
+  --bg-card: #1E293B;
+  --bg-surface: #334155;
+  --bg-alt: #334155;
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+  --border: #475569;
+  --border-light: #334155;
+}
+
+/* ─── Base ────────────────────────────────────────── */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+/* ─── Scrollbar ───────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ─── Diff syntax ─────────────────────────────────── */
+.diff-added {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+.diff-removed {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--error);
+}
+.diff-hunk {
+  color: var(--info);
+  font-weight: 500;
+}
+.diff-header {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* ─── Animations ──────────────────────────────────── */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.15s ease-out;
+}
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out;
+}

@@ -1,0 +1,41 @@
+# ─── 构建产物 ──────────────────────────────
+build/bin/
+build/windows/
+*.exe
+*.syso
+*.dll
+
+# 前端构建产物 / 依赖
+frontend/dist/
+frontend/node_modules/
+frontend/package.json.md5
+
+# 根目录前端依赖（wails 顶层 package.json 仅装 sharp 等构建期工具）
+node_modules/
+dist_jars/
+
+# ─── Go ───────────────────────────────────
+# 本地 Go 缓存（GOCACHE/GOMODCACHE 不要误传）
+.gocache/
+*.test
+*.out
+vendor/
+
+# ─── 运行期生成的数据文件 ──────────────────
+packager_config.json
+build_history.jsonl
+*.log
+
+# ─── IDE / 编辑器 ─────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ─── OS 噪声 ──────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Claude Code 本地配置（个人偏好，不共享）──
+.claude/settings.local.json
