@@ -251,10 +251,7 @@ func ScanWorkspace(root string) ScanResult {
 	if res.HasRootPom {
 		res.ModuleCount = 1
 	}
-	if res.HasRootGit {
-		// root 自身是 git 仓库，无需继续扫描子仓
-		return res
-	}
+	// root 自身是 git 仓库时仍继续扫描子仓，支持根仓 + 子仓混合的 Git 群组项目。
 	scanChildDirs(absRoot, &res)
 	return res
 }

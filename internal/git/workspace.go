@@ -32,17 +32,12 @@ func NewWorkspace(root string) *Workspace {
 // 与 app 层的 ScanWorkspace 共享同一次扫描结果。
 func NewWorkspaceFromScan(root string, childGitDirs []string, hasRootGit bool) *Workspace {
 	w := &Workspace{RootDir: root}
-	if hasRootGit {
-		absRoot, err := filepath.Abs(root)
-		if err != nil {
-			absRoot = root
-		}
-		w.repos = []Repository{{Root: absRoot, Rel: "."}}
-		return w
-	}
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		absRoot = root
+	}
+	if hasRootGit {
+		w.repos = append(w.repos, Repository{Root: absRoot, Rel: "."})
 	}
 	for _, dir := range childGitDirs {
 		rel, _ := filepath.Rel(absRoot, dir)
@@ -62,14 +57,7 @@ func DiscoverRepositories(root string) []Repository {
 		return nil
 	}
 	scan := project.ScanWorkspace(root)
-	if scan.HasRootGit {
-		absRoot, err := filepath.Abs(root)
-		if err != nil {
-			absRoot = root
-		}
-		return []Repository{{Root: absRoot, Rel: "."}}
-	}
-	return NewWorkspaceFromScan(root, scan.ChildGitDirs, false).Repositories()
+	return NewWorkspaceFromScan(root, scan.ChildGitDirs, scan.HasRootGit).Repositories()
 }
 
 func (w *Workspace) HasRepositories() bool {
@@ -150,20 +138,96 @@ func (w *Workspace) Checkout(branch string) error {
 	if !w.HasRepositories() {
 		return nil
 	}
-	checked := false
-	for _, repo := range w.repos {
-		c := New(repo.Root)
-		if hasBranch(c.Branches(), branch) {
-			if err := c.Checkout(branch); err != nil {
-				return err
-			}
-			checked = true
-		}
-	}
-	if !checked && len(w.repos) == 1 {
+
+	// 单仓库直接切换（允许创建新分支）
+	if len(w.repos) == 1 {
 		return New(w.repos[0].Root).Checkout(branch)
 	}
+
+	// 多仓库：先检查所有仓库是否有该分支
+	type repoStatus struct {
+		repo      Repository
+		hasBranch bool
+		branches  []string
+	}
+	statuses := make([]repoStatus, len(w.repos))
+	for i, repo := range w.repos {
+		c := New(repo.Root)
+		branches := c.Branches()
+		statuses[i] = repoStatus{
+			repo:      repo,
+			hasBranch: hasBranch(branches, branch),
+			branches:  branches,
+		}
+	}
+
+	// 统计有/无该分支的仓库
+	var missing []string
+	var targets []Repository
+	for _, s := range statuses {
+		if s.hasBranch {
+			targets = append(targets, s.repo)
+		} else {
+			missing = append(missing, s.repo.Rel)
+		}
+	}
+
+	// 如果所有仓库都没有该分支，返回错误
+	if len(targets) == 0 {
+		return nil // 静默返回，避免误报（可能是用户输入错误）
+	}
+
+	// 执行切换，收集所有错误和成功信息
+	type checkoutResult struct {
+		repo Repository
+		err  error
+	}
+	results := make([]checkoutResult, len(targets))
+	for i, repo := range targets {
+		c := New(repo.Root)
+		results[i] = checkoutResult{
+			repo: repo,
+			err:  c.Checkout(branch),
+		}
+	}
+
+	// 分析结果
+	var errors []string
+	var succeeded []Repository
+	for _, r := range results {
+		if r.err != nil {
+			errors = append(errors, "["+r.repo.Rel+"] "+r.err.Error())
+		} else {
+			succeeded = append(succeeded, r.repo)
+		}
+	}
+
+	// 如果有失败，返回详细错误信息
+	if len(errors) > 0 {
+		msg := "部分仓库切换失败:\n" + strings.Join(errors, "\n")
+		if len(missing) > 0 {
+			msg += "\n\n以下仓库没有分支 " + branch + "，已跳过:\n" + strings.Join(missing, "\n")
+		}
+		if len(succeeded) > 0 {
+			var successNames []string
+			for _, r := range succeeded {
+				successNames = append(successNames, r.Rel)
+			}
+			msg += "\n\n已成功切换的仓库:\n" + strings.Join(successNames, "\n")
+		}
+		return &WorkspaceCheckoutError{Message: msg}
+	}
+
 	return nil
+}
+
+// WorkspaceCheckoutError 表示工作区切换分支时的错误，包含详细的失败和成功信息。
+type WorkspaceCheckoutError struct {
+	Message string
+}
+
+func (e *WorkspaceCheckoutError) Error() string {
+	return e.Message
 }
 
 func (w *Workspace) Pull(branch string) (string, error) {
